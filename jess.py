@@ -43,7 +43,6 @@ def crc32h(message: bytes) -> int:
     return crc32h_impl(message, 0xFFFFFFFF, 0)
 
 def find_gpp():
-    # List of possible g++ executable names
     mingw_options = [
         "g++",
         "g++.exe",
@@ -51,7 +50,6 @@ def find_gpp():
         "x86_64-w64-mingw32-g++.exe",
     ]
 
-    # List of common directories to check
     search_paths = [
         "C:/msys64/mingw64/bin/",
         "C:/mingw/bin/",
@@ -59,20 +57,16 @@ def find_gpp():
         "C:/TDM-GCC-64/bin/",
     ]
 
-    # Add PATH directories
     search_paths.extend(os.environ.get("PATH", "").split(os.pathsep))
 
-    # Remove duplicates and normalize paths
     search_paths = list(set(map(os.path.normpath, search_paths)))
 
-    # Search for the first g++ compiler that exists
     for path in search_paths:
         for m in mingw_options:
             full_path = os.path.join(path, m)
             if os.path.isfile(full_path):
-                return f'"{full_path}"'  # Ensure the path is properly quoted
+                return f'"{full_path}"'
 
-    # Return None if no g++ compiler is found
     return None
 
 def hash_string(message: str) -> int:
