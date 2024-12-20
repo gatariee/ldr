@@ -13,7 +13,6 @@ all: build
 
 build:
 	$(CC) -o $(BIN)/$(OUT) $(SRC) $(CFLAGS) -s
-	./$(BIN)/$(OUT)
 
 debug:
 	$(CC) -o $(BIN)/$(OUT) $(SRC) $(CFLAGS) -g
