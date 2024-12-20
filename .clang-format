@@ -1,0 +1,22 @@
+{
+  "BasedOnStyle": "LLVM",
+  "UseTab": "Never",
+  "IndentWidth": 4,
+  "TabWidth": 4,
+  "BreakBeforeBraces": "Attach",
+  "AllowShortIfStatementsOnASingleLine": false,
+  "AlignConsecutiveAssignments": true,
+  "AlignConsecutiveDeclarations": true,
+  "AlignAfterOpenBracket": "BlockIndent",
+  "AlignConsecutiveMacros": true,
+  "IndentCaseLabels": false,
+  "ColumnLimit": 0,
+  "AccessModifierOffset": -4,
+  "NamespaceIndentation": "All",
+  "FixNamespaceComments": false,
+  "SpacesInParentheses": true,
+  "SpacesInCStyleCastParentheses": true,
+  "AlignOperands": true,
+  "PointerAlignment": "Middle",
+  "SpaceAfterLogicalNot": true
+}

